@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GoLinterSettings">
+    <option name="enabledLinters">
+      <list>
+        <option value="decorder" />
+        <option value="importas" />
+        <option value="errchkjson" />
+        <option value="gocritic" />
+        <option value="musttag" />
+        <option value="goconst" />
+        <option value="reassign" />
+        <option value="errcheck" />
+        <option value="exhaustruct" />
+        <option value="nilnesserr" />
+        <option value="nestif" />
+        <option value="nilnil" />
+        <option value="ineffassign" />
+        <option value="unparam" />
+        <option value="exhaustive" />
+        <option value="err113" />
+        <option value="nilerr" />
+        <option value="staticcheck" />
+        <option value="gochecknoglobals" />
+        <option value="govet" />
+        <option value="dupl" />
+        <option value="mnd" />
+        <option value="errorlint" />
+        <option value="ireturn" />
+        <option value="gochecknoinits" />
+        <option value="lll" />
+        <option value="makezero" />
+        <option value="iface" />
+        <option value="exptostd" />
+        <option value="gosec" />
+        <option value="unused" />
+        <option value="godox" />
+        <option value="unconvert" />
+        <option value="depguard" />
+        <option value="godot" />
+      </list>
+    </option>
+    <option name="linterSelected" value="true" />
+  </component>
+</project>
