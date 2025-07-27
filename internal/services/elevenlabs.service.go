@@ -1,20 +1,26 @@
 package services
 
 import (
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	url2 "net/url"
 	"os"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
+	"ai-phone-support/internal/constants/elevenlabs"
 )
 
 type ElevenLabsAudioChunk struct {
 	Audio   *string `json:"audio"`
 	IsFinal bool    `json:"isFinal"`
+}
+
+type ElevenLabsGenerateAudioBody struct {
+	Text         string  `json:"text"`
+	ModelId      string  `json:"model_id"`
+	LanguageCode *string `json:"language_code"`
 }
 
 type ElevenLabsService struct {
@@ -27,65 +33,44 @@ func NewElevenLabsService(apiKey string) *ElevenLabsService {
 	}
 }
 
-func (s *ElevenLabsService) GenerateAudioStream() (*websocket.Conn, error) {
-	url, err := url2.Parse(fmt.Sprintf("wss://api.elevenlabs.io/v1/text-to-speech/%s/stream-input", os.Getenv("VOICE_ID")))
+func (s *ElevenLabsService) GenerateAudio(text string, format elevenlabs.AudioFormat) ([]byte, error) {
+	url, err := url2.Parse(fmt.Sprintf("https://api.elevenlabs.io/v1/text-to-speech/%s", os.Getenv("ELEVENLABS_VOICE_ID")))
 	if err != nil {
 		return nil, err
 	}
 
 	q := url.Query()
-	q.Set("model_id", os.Getenv("MODEL_ID"))
-	q.Set("language_code", "bg")
+	q.Set("output_format", string(format))
 	url.RawQuery = q.Encode()
 
-	headers := http.Header{}
-	headers.Set("xi-api-key", s.ApiKey)
-
-	conn, _, err := websocket.DefaultDialer.Dial(url.String(), headers)
+	body := ElevenLabsGenerateAudioBody{
+		Text:         text,
+		ModelId:      os.Getenv("ELEVENLABS_MODEL_ID"),
+		LanguageCode: nil,
+	}
+	bodyData, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 
-	err = conn.WriteJSON(gin.H{
-		"text": " ",
-	})
-
+	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(bodyData))
 	if err != nil {
-		return nil, err;
+		return nil, err
 	}
 
-	return conn, nil
-}
+	req.Header.Set("xi-api-key", s.ApiKey)
+	req.Header.Set("Content-Type", "application/json")
 
-func (s *ElevenLabsService) SendText(conn *websocket.Conn, text string) error {
-	return conn.WriteJSON(gin.H{text: text})
-}
-
-func (s *ElevenLabsService) EndAudioStream(conn *websocket.Conn) error {
-	return conn.WriteJSON(gin.H{"text": ""})
-}
-
-// ReceiveAudio - returns base64 encoded audio chunk.
-func (s *ElevenLabsService) ReceiveAudio(conn *websocket.Conn) (*string, error) {
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			return nil, err
-		}
-
-		var chunk ElevenLabsAudioChunk
-		if err := json.Unmarshal(msg, &chunk); err != nil {
-			return nil, errors.New(fmt.Sprintf("failed to decode ElevenLabs chunk! %v", err))
-		}
-
-		if chunk.IsFinal {
-			return nil, nil
-		}
-
-		if chunk.Audio == nil {
-			return nil, errors.New("audio not final but is null")
-		}
-
-		return chunk.Audio, nil
+	client := http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
 	}
+
+	resAudio, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return resAudio, nil
 }

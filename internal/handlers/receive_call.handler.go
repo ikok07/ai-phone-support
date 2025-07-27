@@ -1,36 +1,40 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
-	// "os"
+	"os"
 
+	"ai-phone-support/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/twilio/twilio-go/twiml"
-	// "ai-phone-support/internal/services"
 )
 
 func ReceiveCallHandler(c *gin.Context) {
-	// twillio := services.TwillioService{
-	// 	AuthKey: os.Getenv("TWILLIO_SECRET_KEY"),
-	// }
-	// if !twillio.ValidateRequest(c) {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-	// 	return
-	// }
-
-	// params := c.Request.URL.Query()
+	twillio := services.TwilioService{
+		AuthKey: os.Getenv("TWILLIO_AUTH_KEY"),
+	}
+	if !twillio.ValidateRequest(c) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
 	// Save this to a db
-	// fromNumber := params["From"][0]
-	// if fromNumber != "client:Anonymous" {
-	// 	// Save to db...
-	// }
-	// fmt.Println(fromNumber)
+	fromNumber := c.Request.PostForm["From"][0]
+	if fromNumber != "client:Anonymous" {
+		// Save to db...
+	}
+	fmt.Println(fromNumber)
+
+	fromNumberParam := twiml.VoiceParameter{
+		Name:  "fromNumber",
+		Value: fromNumber,
+	}
 
 	voiceStream := twiml.VoiceStream{
-		Name: "Test",
-		Url:  "wss://flw3nxfetvtbrrcydjcu5zmtde.srv.us/calls/audio",
-		// OptionalAttributes: map[string]string{fromNumber: fromNumber},
+		Name:          "Test",
+		Url:           "wss://flw3nxfetvtbrrcydjcu5zmtde.srv.us/calls/audio",
+		InnerElements: []twiml.Element{fromNumberParam},
 	}
 
 	xml, err := twiml.Voice([]twiml.Element{
