@@ -9,10 +9,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"time"
 
 	"ai-phone-support/internal/models"
-	"ai-phone-support/internal/utils"
 )
 
 type N8NService struct {
@@ -20,9 +18,9 @@ type N8NService struct {
 }
 
 type N8NTriggerMainFlowOptions struct {
-	FromNumber string        `json:"fromNumber"`
-	DialNumber *string       `json:"dialNumber"`
-	Audio      models.Speech `json:"audio"`
+	FromNumber    string  `json:"fromNumber"`
+	DialNumber    *string `json:"dialNumber"`
+	Transcription *string `json:"transcription"`
 }
 
 func NewN8NService(baseUrl string) N8NService {
@@ -35,9 +33,9 @@ func (s *N8NService) TriggerMainWorkflow(options N8NTriggerMainFlowOptions) (mod
 	body := bytes.Buffer{}
 	writer := multipart.NewWriter(&body)
 
-	// Add the file if available
-	if options.Audio != nil {
-		if err := setAudioFormData(writer, options.Audio); err != nil {
+	// Add the transcription if available
+	if options.Transcription != nil {
+		if err := writer.WriteField("transcription", *options.Transcription); err != nil {
 			return nil, err
 		}
 	}
@@ -83,38 +81,4 @@ func (s *N8NService) TriggerMainWorkflow(options N8NTriggerMainFlowOptions) (mod
 	}
 
 	return formattedResponse, nil
-}
-
-func setAudioFormData(writer *multipart.Writer, audio models.Speech) error {
-	filename := fmt.Sprintf("temp_audio_%v.wav", time.Now().Unix())
-	file, err := os.Create(filename)
-	if err != nil {
-		return errors.New("failed to create temporary audio file")
-	}
-	defer file.Close()
-	defer os.Remove(filename)
-
-	var wholeSpeechPCM []int16
-	for _, speechPart := range audio {
-		wholeSpeechPCM = append(wholeSpeechPCM, speechPart...)
-	}
-
-	if err := utils.PcmToWav(wholeSpeechPCM, file); err != nil {
-		return errors.New("failed to convert audio to wav format")
-	}
-
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return errors.New("failed to seek back to the beginning of the file")
-	}
-
-	part, err := writer.CreateFormFile("audio", filename)
-	if err != nil {
-		return errors.New("failed to create request form data field for audio")
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return errors.New("failed to copy the wav file to the request form data")
-	}
-
-	return nil
 }

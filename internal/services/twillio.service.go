@@ -1,14 +1,13 @@
 package services
 
 import (
-	"encoding/base64"
-	"errors"
 	"os"
 
-	"ai-phone-support/internal/constants/elevenlabs"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
+	"github.com/twilio/twilio-go"
 	"github.com/twilio/twilio-go/client"
+	openapi "github.com/twilio/twilio-go/rest/api/v2010"
+	"github.com/twilio/twilio-go/twiml"
 )
 
 type TwilioSendAudioBody struct {
@@ -27,18 +26,16 @@ type TwilioStopCurrAudioBody struct {
 }
 
 type TwilioService struct {
-	AuthKey             string
-	WebsocketConnection *websocket.Conn
-	StreamSid           string
-	FromNumber          string
+	AuthKey    string
+	CallSid    string
+	FromNumber string
 }
 
-func NewTwilioService(authKey string, wsConnection *websocket.Conn) TwilioService {
+func NewTwilioService(authKey string) TwilioService {
 	return TwilioService{
-		AuthKey:             authKey,
-		WebsocketConnection: wsConnection,
-		StreamSid:           "",
-		FromNumber:          "",
+		AuthKey:    authKey,
+		CallSid:    "",
+		FromNumber: "",
 	}
 }
 
@@ -71,43 +68,40 @@ func (s *TwilioService) ValidateRequest(c *gin.Context) bool {
 	return requestValidator.Validate(url, params, signature)
 }
 
-func (s *TwilioService) SendAudioFromText(text string) error {
-	tts := NewElevenLabsService(os.Getenv("ELEVENLABS_API_KEY"))
+func (s *TwilioService) UpdateCall(xml string) error {
+	var twilioClient = twilio.NewRestClientWithParams(twilio.ClientParams{
+		Username: os.Getenv("TWILLIO_API_KEY_SID"),
+		Password: os.Getenv("TWILLIO_API_KEY_SECRET"),
+	})
 
-	audio, err := tts.GenerateAudio(text, elevenlabs.ELEVENLABS_FORMAT_ULAW)
-	if err != nil {
+	params := openapi.UpdateCallParams{}
+	params.SetTwiml(xml)
+
+	if _, err := twilioClient.Api.UpdateCall(s.CallSid, &params); err != nil {
 		return err
 	}
-
-	return s.SendAudio(s.WebsocketConnection, audio)
-}
-
-func (s *TwilioService) SendAudio(conn *websocket.Conn, audio []byte) error {
-	encodedAudio := base64.StdEncoding.EncodeToString(audio)
-	body := TwilioSendAudioBody{
-		Event:     "media",
-		StreamSid: s.StreamSid,
-		Media: TwilioSendAudioBodyMedia{
-			Payload: encodedAudio,
-		},
-	}
-
-	if err := conn.WriteJSON(body); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (s *TwilioService) StopCurrAudio(conn *websocket.Conn, streamSid string) error {
-	body := TwilioStopCurrAudioBody{
-		Event:     "media",
-		StreamSid: streamSid,
+func (s *TwilioService) ListenForInput(inputType string, url string, gatherInnerElements []twiml.Element, beforeGatherElements []twiml.Element) string {
+	voiceGather := twiml.VoiceGather{
+		Action:              url,
+		ActionOnEmptyResult: "false",
+		Input:               inputType,
+		Language:            "bg",
+		Method:              "POST",
+		SpeechModel:         "deepgram_nova-2",
+		SpeechTimeout:       "3", // seconds
+		Timeout:             "3", // seconds
+		InnerElements:       gatherInnerElements,
 	}
 
-	if err := conn.WriteJSON(body); err != nil {
-		return errors.New("failed to stop current twilio audio")
-	}
+	elements := []twiml.Element{}
 
-	return nil
+	elements = append(elements, beforeGatherElements...)
+	elements = append(elements, voiceGather)
+
+	xml, _ := twiml.Voice(elements)
+
+	return xml
 }

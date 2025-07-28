@@ -31,24 +31,19 @@ func ReceiveCallHandler(c *gin.Context) {
 		Value: fromNumber,
 	}
 
-	voiceStream := twiml.VoiceStream{
-		Name:          "Test",
-		Url:           "wss://flw3nxfetvtbrrcydjcu5zmtde.srv.us/calls/audio",
-		InnerElements: []twiml.Element{fromNumberParam},
-	}
-
-	xml, err := twiml.Voice([]twiml.Element{
-		twiml.VoiceConnect{InnerElements: []twiml.Element{voiceStream}},
-		twiml.VoiceSay{Message: "Hello"},
-		twiml.VoicePause{Length: "3"},
-		twiml.VoiceSay{Message: "This is a test"},
-		twiml.VoicePause{Length: "3"},
-		twiml.VoiceSay{Message: "Goodbye"},
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate new voice stream!"})
-		return
-	}
+	xml := twillio.ListenForInput(
+		"dtmf speech",
+		fmt.Sprintf("%s/calls/audio", os.Getenv("BASE_URL_TUNNEL_DEV")),
+		[]twiml.Element{
+			fromNumberParam,
+		},
+		[]twiml.Element{
+			twiml.VoicePlay{
+				Loop: "1",
+				Url:  fmt.Sprintf("%s/calls/audio?filename=greeting.ulaw", os.Getenv("BASE_URL_TUNNEL_DEV")),
+			},
+		},
+	)
 
 	c.Header("Content-Type", "text/xml")
 	c.String(http.StatusOK, xml)
