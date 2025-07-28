@@ -19,7 +19,6 @@ type N8NService struct {
 
 type N8NTriggerMainFlowOptions struct {
 	FromNumber    string  `json:"fromNumber"`
-	DialNumber    *string `json:"dialNumber"`
 	Transcription *string `json:"transcription"`
 }
 
@@ -36,13 +35,6 @@ func (s *N8NService) TriggerMainWorkflow(options N8NTriggerMainFlowOptions) (mod
 	// Add the transcription if available
 	if options.Transcription != nil {
 		if err := writer.WriteField("transcription", *options.Transcription); err != nil {
-			return nil, err
-		}
-	}
-
-	// Dial number
-	if options.DialNumber != nil {
-		if err := writer.WriteField("dialNumber", *options.DialNumber); err != nil {
 			return nil, err
 		}
 	}

@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 
+	"ai-phone-support/internal/db"
 	"ai-phone-support/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/twilio/twilio-go/twiml"
+	"gorm.io/gorm/clause"
 )
 
 func ReceiveCallHandler(c *gin.Context) {
@@ -19,12 +21,20 @@ func ReceiveCallHandler(c *gin.Context) {
 		return
 	}
 
-	// Save this to a db
+	// Create new customer if not available
 	fromNumber := c.Request.PostForm["From"][0]
-	if fromNumber != "client:Anonymous" {
-		// Save to db...
+	if fromNumber == "client:Anonymous" {
+		fromNumber = os.Getenv("TWILLIO_DUMMY_PHONE")
 	}
-	fmt.Println(fromNumber)
+
+	customer := db.Customer{
+		PhoneNumber: fromNumber,
+	}
+	err := db.Insert(customer, db.DB.Clauses(clause.OnConflict{DoNothing: true}))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
 
 	fromNumberParam := twiml.VoiceParameter{
 		Name:  "fromNumber",

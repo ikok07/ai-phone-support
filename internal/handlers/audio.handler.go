@@ -34,7 +34,6 @@ func processAudio(transcription string, twilio *services.TwilioService) {
 	n8nClient := services.NewN8NService(os.Getenv("N8N_BASE_URL"))
 	options := services.N8NTriggerMainFlowOptions{
 		FromNumber:    twilio.FromNumber,
-		DialNumber:    nil,
 		Transcription: &transcription,
 	}
 	workflowResponse, err := n8nClient.TriggerMainWorkflow(options)
